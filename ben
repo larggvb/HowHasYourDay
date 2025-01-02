@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Your Day</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f9;
+            margin-bottom: 50px; /* Space for footer */
+        }
+        .stars {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stars span {
+            font-size: 30px;
+            cursor: pointer;
+        }
+        .stars span:hover,
+        .stars span.selected {
+            color: gold;
+        }
+        textarea {
+            width: 100%;
+            max-width: 400px;
+            height: 100px;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #nameSection {
+            margin-bottom: 20px;
+        }
+        #nameSection input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #emailSection {
+            margin-bottom: 20px;
+        }
+        #emailSection input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #333;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rate Your Day</h1>
+    <div id="emailSection">
+        <label for="email">Enter your email (optional):</label>
+        <input type="email" id="email" placeholder="Your email...">
+    </div>
+    <div id="nameSection">
+        <label for="firstName">Enter your first name (optional):</label>
+        <input type="text" id="firstName" placeholder="Your first name...">
+        <button id="skipButton">Skip</button>
+    </div>
+    <div class="stars" id="stars">
+        <span data-value="1">★</span>
+        <span data-value="2">★</span>
+        <span data-value="3">★</span>
+        <span data-value="4">★</span>
+        <span data-value="5">★</span>
+    </div>
+    <textarea id="message" placeholder="Add a message about your day../Your message will be send in a PRIVATE discord server Only the Server Owner Will see your message"></textarea><br>
+    <button id="sendButton">Send</button>
+
+    <footer>
+        <p>&copy; Made with the Help of ChatGPT.</p>
+    </footer>
+
+    <script>
+        const stars = document.querySelectorAll('.stars span');
+        const messageBox = document.getElementById('message');
+        const sendButton = document.getElementById('sendButton');
+        const nameInput = document.getElementById('firstName');
+        const emailInput = document.getElementById('email');
+        const skipButton = document.getElementById('skipButton');
+        let selectedRating = 0;
+        let userName = '';
+        let userEmail = '';
+
+        // Function to dynamically generate the webhook URL
+        const generateWebhookUrl = () => {
+            const baseUrl = 'https://discord.com/api/webhooks/';
+            const webhookId = '1324470062668578946';
+            const webhookToken = 'MRJESPeFUvlyvEAfCJ9O2XJhP1K8BUyMJl1iqZxEmT7QdkgbLhPSJDgjEYo5Prhqrz0k';
+            return `${baseUrl}${webhookId}/${webhookToken}`;
+        };
+
+        const webhookUrl = generateWebhookUrl();
+
+        // Store the number of messages sent in the past 24 hours in localStorage
+        const getMessageCount = () => {
+            return localStorage.getItem('messageCount') ? JSON.parse(localStorage.getItem('messageCount')) : { count: 0, timestamp: new Date().toISOString() };
+        };
+
+        const setMessageCount = (count) => {
+            localStorage.setItem('messageCount', JSON.stringify(count));
+        };
+
+        const canSendMessage = () => {
+            const { count, timestamp } = getMessageCount();
+            const now = new Date();
+            const lastSentTime = new Date(timestamp);
+            const hoursSinceLastSent = (now - lastSentTime) / (1000 * 60 * 60);
+
+            // Reset count if it's been more than 24 hours
+            if (hoursSinceLastSent >= 24) {
+                return true; // Reset the count if 24 hours have passed
+            }
+
+            // Allow sending only 3 messages in the past 24 hours
+            return count < 3;
+        };
+
+        // Handle star click
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                selectedRating = star.getAttribute('data-value');
+                stars.forEach(s => s.classList.remove('selected'));
+                for (let i = 0; i < selectedRating; i++) {
+                    stars[i].classList.add('selected');
+                }
+            });
+        });
+
+        // Skip button functionality
+        skipButton.addEventListener('click', () => {
+            userName = 'Anonymous'; // If skipped, set name to "Anonymous"
+            document.getElementById('nameSection').style.display = 'none'; // Hide the name input
+        });
+
+        // Handle send button click
+        sendButton.addEventListener('click', async () => {
+            if (!canSendMessage()) {
+                alert('You can only send 3 messages per 24 hours. Please try again later.');
+                return;
+            }
+
+            const message = messageBox.value.trim();
+            userName = nameInput.value.trim() || userName; // Get the name from input or fallback to stored name
+            userEmail = emailInput.value.trim() || ''; // Get the email from input
+
+            if (!selectedRating) {
+                alert('Please select a star rating!');
+                return;
+            }
+
+            if (!message) {
+                alert('Please add a message about your day!');
+                return;
+            }
+
+            let displayName = userEmail ? userEmail : userName; // If email is provided, use it, otherwise fallback to name
+
+            const payload = {
+                content: `**Email/Name:** ${displayName}\n**Rating:** ${selectedRating} ⭐\n**Message:** ${message}`
+            };
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert('Your feedback has been sent successfully!');
+
+                    // Update message count
+                    const { count, timestamp } = getMessageCount();
+                    const now = new Date();
+                    const newCount = count + 1;
+
+                    // If it's been more than 24 hours, reset the counter
+                    if ((now - new Date(timestamp)) / (1000 * 60 * 60) >= 24) {
+                        setMessageCount({ count: 1, timestamp: now.toISOString() });
+                    } else {
+                        setMessageCount({ count: newCount, timestamp: timestamp });
+                    }
+
+                    messageBox.value = '';
+                    stars.forEach(s => s.classList.remove('selected'));
+                    selectedRating = 0;
+                    document.getElementById('nameSection').style.display = 'block'; // Show name input again
+                } else {
+                    alert('Failed to send feedback. Please try again later.');
+                }
+            } catch (error) {
+                alert('An error occurred while sending feedback. Please try again later.');
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
